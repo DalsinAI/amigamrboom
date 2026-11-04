@@ -436,6 +436,8 @@ int main(int argc, char **argv)
       SDL_Quit();
       return(1);
    }
+   /* The game uses no mouse: no Workbench pointer over it */
+   SDL_ShowCursor(SDL_DISABLE);
    /* acsdl12's pad shows as connected only once ACGame has polled it, after
     * the screen opens: open it here, so a pad plugged in later works too. */
    if (joysticks[0] == NULL)
