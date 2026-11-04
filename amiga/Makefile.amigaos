@@ -1,0 +1,103 @@
+# Mr.Boom for AmigaOS 3.x / AmiCradle, 68040 + FPU, on acsdl12.
+#
+#   make -f amiga/Makefile.amigaos STOVE=/path/to/openamigagcc \
+#        NDK=/path/to/gfopensdk/OpenNDK/Include_H \
+#        ACSDL=/path/to/amicradle-guest/gameports/acsdl12
+#
+# STOVE is GFOpenAmigaGCC 16.2.0-open4 or later. ACSDL is acsdl12, built with
+# its own Makefile.amigaos (its library holds ACGame and zlib's inflate, so
+# ZLIB is only needed to build acsdl12). The game is upstream's SDL 1.2
+# front end (sdl/sdl.cpp, written for the Atari Falcon) and its core
+# (mrboom.c, mrboom_data.c, common.cpp, ai/), built big-endian with
+# -DMSB_FIRST as upstream's libretro core is on big-endian machines. The
+# game's data is the heap compiled into mrboom_data.c; the sounds and tunes
+# are unpacked from sdl2/sdl2_data.h at build time (amiga/tools/
+# extract_data.py, python3) into data/. XM music is played by upstream's
+# ibxm (libretro/ibxm) in acsdl12's music hook, MODs by acsdl12. libstdc++
+# asks for POSIX threads: amiga/pthread_stubs.c.
+# Output: build/amigaos/MrBoom/ with the program, data/ beside it, and the
+# icons.
+
+STOVE   ?= $(HOME)/CradleLab/toolchain/openamigagcc-16.2.0-open4-x86_64-linux
+NDK     ?= $(HOME)/CradleLab/gfopensdk/OpenNDK/Include_H
+ACSDL   ?= $(HOME)/CradleLab/guest-sdl/gameports/acsdl12
+ACGAME  ?= $(ACSDL)/../acgame
+ZLIB    ?= $(HOME)/CradleLab/zlib-1.3.1
+PYTHON  ?= python3
+CXX     = $(STOVE)/bin/m68k-amigaos-g++
+CC      = $(STOVE)/bin/m68k-amigaos-gcc
+CPU     ?= -m68040 -m68881
+OPT     ?= -O2 -fomit-frame-pointer
+GITVER  := $(shell git rev-parse --short HEAD 2>/dev/null)
+DEFS    = -D__LIBSDL__ -DMRBOOM -DONLY_LOCAL -DMSB_FIRST -D_FORTIFY_SOURCE=0 \
+          -DPLATFORM=\"amigaos\" -DGIT_VERSION=\"\ $(GITVER)\"
+INCS    = -I. -Iai -Ilibretro-common/include -Ilibretro-common \
+          -I$(ACSDL)/include -I$(ACSDL)/include/SDL -I$(ACGAME)/include -I$(NDK)
+# Upstream's own warnings, not the port's, are left out of the game's
+# code: the translated assembly's unused labels and locals in mrboom.c,
+# and the ai/ code's loose counters (-Wsign-compare).
+CFLAGS  = -noixemul -std=gnu99 $(OPT) $(CPU) -Wall $(DEFS) $(INCS)
+CXXFLAGS = -noixemul -std=gnu++98 $(OPT) $(CPU) -Wall -Wno-sign-compare \
+          $(DEFS) $(INCS)
+AFLAGS  = -noixemul -std=gnu99 $(OPT) $(CPU) -Wall -Wextra \
+          -I$(ACSDL)/include -Ilibretro/ibxm
+LDFLAGS = -noixemul $(CPU)
+BUILD   = build/amigaos
+OUT     = $(BUILD)/MrBoom
+DATA    = $(OUT)/data
+
+CORE_C  = $(BUILD)/mrboom.o $(BUILD)/mrboom_data.o $(BUILD)/memory_stream.o
+CORE_CXX = $(BUILD)/common.o $(BUILD)/sdl.o $(BUILD)/BotTree.o $(BUILD)/Bot.o \
+          $(BUILD)/GridFunctions.o $(BUILD)/MrboomHelper.o
+OBJS    = $(CORE_C) $(CORE_CXX) $(BUILD)/ibxm.o $(BUILD)/music_amiga.o \
+          $(BUILD)/pthread_stubs.o $(BUILD)/stack.o
+HDRS    = mrboom.h common.hpp amiga/music_amiga.h $(wildcard ai/*.hpp)
+ICONS   = amiga/icons/MrBoom-drawer.info amiga/icons/MrBoom.info \
+          amiga/icons/data.info amiga/icons/ReadMe.info amiga/icons/LICENSE.info
+
+all: $(OUT)/MrBoom
+
+$(OUT)/MrBoom: $(OBJS) $(ICONS) AMIGA_PORT.md LICENSE sdl2/sdl2_data.h | $(OUT)
+	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(ACSDL)/build/amigaos/libacsdl12.a -lm
+	rm -rf $(DATA)
+	$(PYTHON) amiga/tools/extract_data.py sdl2/sdl2_data.h $(DATA)
+	cp AMIGA_PORT.md $(OUT)/ReadMe
+	cp LICENSE $(OUT)/LICENSE
+	cp amiga/icons/MrBoom.info amiga/icons/data.info \
+	   amiga/icons/ReadMe.info amiga/icons/LICENSE.info $(OUT)/
+	cp amiga/icons/MrBoom-drawer.info $(BUILD)/MrBoom.info
+
+$(BUILD)/%.o: %.c $(HDRS) | $(BUILD)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BUILD)/memory_stream.o: libretro-common/streams/memory_stream.c | $(BUILD)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BUILD)/%.o: %.cpp $(HDRS) | $(BUILD)
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+$(BUILD)/sdl.o: sdl/sdl.cpp $(HDRS) | $(BUILD)
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+$(BUILD)/%.o: ai/%.cpp $(HDRS) | $(BUILD)
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+$(BUILD)/ibxm.o: libretro/ibxm/ibxm.c | $(BUILD)
+	$(CC) -noixemul -std=gnu99 $(OPT) $(CPU) -Wall -c -o $@ $<
+
+$(BUILD)/music_amiga.o: amiga/music_amiga.c amiga/music_amiga.h | $(BUILD)
+	$(CC) $(AFLAGS) -c -o $@ $<
+
+$(BUILD)/pthread_stubs.o: amiga/pthread_stubs.c | $(BUILD)
+	$(CC) -noixemul $(OPT) $(CPU) -Wall -c -o $@ $<
+
+$(BUILD)/stack.o: amiga/stack.c | $(BUILD)
+	$(CC) $(AFLAGS) -c -o $@ $<
+
+$(BUILD) $(OUT):
+	mkdir -p $@
+
+clean:
+	rm -rf $(BUILD)
+
+.PHONY: all clean

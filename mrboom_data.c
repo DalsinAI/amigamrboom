@@ -99,6 +99,11 @@
 #define max_s2 8
 #define MAX_FMT_SIZE    1024
          #define FILENAME_SIZE 1000 //SKIP_ME
+#ifdef __amigaos__
+/* Memory is packed, so m would be byte-aligned: sdl/sdl.cpp wants m and
+ * m.buffer on a long-word boundary. */
+__attribute__((aligned(4)))
+#endif
 Memory m = {
 {{0}},{{0}},{{0}},{{0}},{{0}},{{0}},{{0}},{{0}},{{0}},{{0}},{{0}},{{0}},{{0}},{{0}},{{0}},{{0}},{{0}},{{0}},{{0}},{{0}}, // registers
 0,0,0,0,0,0, //flags
