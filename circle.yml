@@ -1,0 +1,3 @@
+test:
+  override:
+    - tools/tests/runTest.sh unittests
