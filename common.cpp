@@ -43,7 +43,7 @@ extern "C"
 
 #define NB_CHIPTUNES 11
 
-#ifdef __LIBSDL__
+#if defined(__LIBSDL__) && !defined(__amigaos__)
 #define UNZIP_DATA
 #endif
 
@@ -125,12 +125,18 @@ const char *musics_filenames[NB_CHIPTUNES + PADDING_FALCON] = {
 #include <SDL/SDL_mixer.h>
 #endif
 
+#ifdef __amigaos__
+#include "amiga/music_amiga.h"
+#endif
+
 #if defined(__LIBSDL2__) || defined(__LIBSDL__)
 
 int sdl2_fx_volume = DEFAULT_SDL2_FX_VOLUME;
 
 static Mix_Chunk *wave[NB_WAV];
+#ifndef __amigaos__ /* amiga/music_amiga.c holds the tunes */
 static Mix_Music *musics[NB_CHIPTUNES];
+#endif
 
 #define DEFAULT_VOLUME MIX_MAX_VOLUME / 2
 #define MATKAMIE_VOLUME MIX_MAX_VOLUME
@@ -442,6 +448,35 @@ bool mrboom_load()
    music = false;
 #endif
 
+#ifdef __amigaos__
+   /* The sounds and tunes are files in PROGDIR:data/, unpacked from
+    * sdl2/sdl2_data.h at build time; the game's own data is the heap in
+    * mrboom_data.c, as in the libretro core. */
+   for (int i = 0; i < NB_WAV; i++)
+   {
+      char filePath[PATH_MAX_LENGTH];
+      snprintf(filePath, sizeof(filePath), "%s%d.WAV", AMIGA_DATA_DIR, i);
+      wave[i] = audio ? Mix_LoadWAV(filePath) : NULL;
+      if (wave[i] != NULL)
+      {
+         Mix_VolumeChunk(wave[i], MIX_MAX_VOLUME * sdl2_fx_volume / 10);
+      }
+      else if (audio)
+      {
+         log_error("Couldn't load %s: %s\n", filePath, Mix_GetError());
+      }
+      ignoreForAbit[i] = 0;
+      ignoreForAbitFlag[i] = 5;
+   }
+   for (int i = 0; i < NB_CHIPTUNES; i++)
+   {
+      if (audio && amiga_music_load(i, musics_filenames[i]) != 0)
+      {
+         log_error("Couldn't load %s%s\n", AMIGA_DATA_DIR, musics_filenames[i]);
+      }
+   }
+#else
+
 #ifdef UNZIP_DATA
    char tmpDir[PATH_MAX_LENGTH];
 #ifndef __LIBSDL__
@@ -572,6 +607,7 @@ bool mrboom_load()
    musics[9] = audio_mixer_load_mod(SOUND_HAPPY_XM, SOUND_HAPPY_XM_len);
 #endif
 #endif
+#endif /* __amigaos__ */
 
    return (true);
 }
@@ -677,6 +713,17 @@ bool mrboom_init()
 
 void mrboom_deinit()
 {
+#ifdef __amigaos__
+   amiga_music_free();
+   for (int i = 0; i < NB_WAV; i++)
+   {
+      if (wave[i] != NULL)
+      {
+         Mix_FreeChunk(wave[i]);
+         wave[i] = NULL;
+      }
+   }
+#endif
 #ifdef __LIBRETRO__
    for (int i = 0; i < NB_CHIPTUNES; i++)
    {
@@ -864,7 +911,7 @@ void mrboom_sound(void)
          log_debug("blow what: sample = %d / panning %d, note: %d ignoreForAbit[%d]\n", a1, (db)a >> 4, (db)(*(((db *)&m.blow_what2[last_voice / 2]) + 1)), ignoreForAbit[a1]);
       }
       last_voice = (last_voice + 2) % NB_VOICES;
-#if defined LOAD_FROM_FILES
+#if defined LOAD_FROM_FILES || defined(__amigaos__)
       if ((a1 >= 0) && (a1 < NB_WAV) && (wave[a1] != NULL))
 #else
       if ((a1 >= 0) && (a1 < NB_WAV) && (wave[a1].samples != NULL))
@@ -935,7 +982,9 @@ void mrboom_sound(void)
             }
             index = musics_index;
          }
-#if defined __LIBSDL2__ || __LIBSDL__
+#if defined(__amigaos__)
+         amiga_music_play(index, musics_volume[index]);
+#elif defined __LIBSDL2__ || __LIBSDL__
          Mix_VolumeMusic(musics_volume[index]);
          log_debug("Playing %s volume:%d\n", musics_filenames[index], Mix_VolumeMusic(-1));
          if (Mix_PlayMusic(musics[index], -1) == -1)

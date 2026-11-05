@@ -19,3 +19,6 @@ mrboom
 !tools/asm/src/mrboom
 .vscode/
 TODO
+
+# AmigaOS build
+build/

@@ -35,6 +35,76 @@ static int           timerButton[nb_dyna]       = { 0 };
 
 #define SPEED_TAP    15
 
+#ifdef __amigaos__
+extern bool audio;
+
+/* acsdl12 numbers the pad's buttons as ACGame does (A, B, X, Y, Back,
+ * Guide, Start, sticks, shoulders); the switches below use upstream's
+ * numbering (A, B, X, Y, L, R, Select, Start, Select, Start). A (a CD32
+ * pad's red, a one-button stick's fire) drops bombs, as B does on the
+ * libretro core's pads, and B (blue) is the remote trigger. */
+static int amiga_pad_button(int button)
+{
+   switch (button)
+   {
+   case 0: return(1);   /* A: drop bomb (button_b) */
+   case 1: return(0);   /* B: trigger (button_a) */
+   case 2: return(2);   /* X: jump */
+   case 3: return(3);   /* Y */
+   case 4: return(6);   /* Back: add a bot / select */
+   case 5: return(8);   /* Guide: as Back */
+   case 6: return(7);   /* Start */
+   case 9: return(4);   /* left shoulder (CD32 reverse) */
+   case 10: return(5);  /* right shoulder (CD32 forward) */
+   default: return(-1);
+   }
+}
+
+/* The game runs at 60 frames a second; when the machine falls behind, up
+ * to two frames in a row are run without being shown. */
+static bool amiga_pace_frame(void)
+{
+   static Uint32 next3   = 0; /* in thirds of a millisecond */
+   static int    skipped = 0;
+   const Uint32  period3 = 50;
+   Uint32        now3    = SDL_GetTicks() * 3;
+   bool          show    = true;
+
+   if (next3 == 0 || (Sint32)(now3 - next3) > (Sint32)(period3 * 6))
+   {
+      next3 = now3;
+   }
+   if ((Sint32)(now3 - next3) > (Sint32)period3 && skipped < 2)
+   {
+      show = false;
+      skipped++;
+   }
+   else
+   {
+      skipped = 0;
+   }
+   next3 += period3;
+   if ((Sint32)(next3 - now3) > 0)
+   {
+      SDL_Delay((next3 - now3) / 3);
+   }
+   return(show);
+}
+
+static void amiga_present(void)
+{
+   const db *src = m.buffer;
+   Uint8    *dst = (Uint8 *)display->pixels;
+
+   for (int y = 0; y < HEIGHT; y++)
+   {
+      memcpy(dst, src, WIDTH);
+      src += WIDTH;
+      dst += display->pitch;
+   }
+}
+#endif
+
 void mrboom_update_input_loop()
 {
    for (int i = 0; i < nb_dyna; i++)
@@ -150,6 +220,18 @@ void sdl_init()
    log_info("   |___|___|___|_____|  sns  |___________|___________|___________|___|___|___|\n");
    log_info(" ==[mr.boom]======================================================[est. 1997]==\n");
 
+#ifdef __amigaos__
+   /* acsdl12 mixes mono; the hook (amiga/music_amiga.c) is written for it. */
+   if (Mix_OpenAudio(22050, AUDIO_S16SYS, 1, 1024) == -1)
+   {
+      log_info("Mix_OpenAudio: %s (playing without sound)\n", Mix_GetError());
+      audio = false;
+   }
+   else
+   {
+      Mix_AllocateChannels(16);
+   }
+#else
    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 1024) == -1)
    {
       log_info("Mix_OpenAudio: %s\n", Mix_GetError());
@@ -167,6 +249,7 @@ void sdl_init()
    {
       log_debug("Mix init ok\n");
    }
+#endif
 
    SDL_Joystick *joy;
 
@@ -346,11 +429,29 @@ int main(int argc, char **argv)
    mrboom_init();
 
    display = SDL_SetVideoMode(320, 200, 8, SDL_HWSURFACE | SDL_RESIZABLE);
+#ifdef __amigaos__
+   if (display == NULL)
+   {
+      log_error("SDL_SetVideoMode: %s\n", SDL_GetError());
+      SDL_Quit();
+      return(1);
+   }
+   /* The game uses no mouse: no Workbench pointer over it */
+   SDL_ShowCursor(SDL_DISABLE);
+   /* acsdl12's pad shows as connected only once ACGame has polled it, after
+    * the screen opens: open it here, so a pad plugged in later works too. */
+   if (joysticks[0] == NULL)
+   {
+      joysticks[0] = SDL_JoystickOpen(0);
+   }
+#endif
 
    updatePalette();
 
+#ifndef __amigaos__
    extern bool audio;
    audio = 0;
+#endif
 
    SDL_WM_SetCaption("Mrboom", NULL);
 
@@ -358,7 +459,7 @@ int main(int argc, char **argv)
 
    startClock(0);
    int nbFrames = 0;
-#ifdef FALCON
+#if defined(FALCON) || defined(__amigaos__)
    m.slowcpu = 1;
 #endif
 
@@ -367,17 +468,21 @@ int main(int argc, char **argv)
    m.temps_avant_demo = 10;
 #endif
 
+#ifndef __amigaos__ /* mrboom_init has loaded the sounds */
    if (done)
    {
       mrboom_load(); //to avoid temporary files remaining
    }
+#endif
 
    while (!done)
    {
+#ifndef __amigaos__
       if (nbFrames == 10)
       {
          mrboom_load();
       }
+#endif
 
 #ifdef DEMO
       if (nbFrames == 60 * 10)
@@ -413,10 +518,18 @@ int main(int argc, char **argv)
             mrboom_autopilot_1_button_joysticks(i);
          }
       }
+#ifdef __amigaos__
+      bool showFrame = amiga_pace_frame();
+      if (showFrame && m.affiche_pal != 1)
+      {
+         amiga_present();
+      }
+#else
       if (m.ramVideoPointer != NULL)
       {
          display->pixels = m.ramVideoPointer;
       }
+#endif
       SDL_UnlockSurface(display);
 
       if (m.vgaPaletteModified)
@@ -426,7 +539,11 @@ int main(int argc, char **argv)
       }
 
       startClock(1);
+#ifdef __amigaos__
+      if (showFrame && m.affiche_pal != 1)
+#else
       if (m.affiche_pal != 1)
+#endif
       {
          SDL_UpdateRect(display, 0, 0, 320, 200);
       }
@@ -594,7 +711,11 @@ int main(int argc, char **argv)
 
          case SDL_JOYBUTTONDOWN:
 
+#ifdef __amigaos__
+            switch (amiga_pad_button(e.jbutton.button))
+#else
             switch (e.jbutton.button)
+#endif
             {
             case 0:
                mrboom_update_input_j(button_a, e.jaxis.which, 1, false);
@@ -657,7 +778,11 @@ int main(int argc, char **argv)
 
          case SDL_JOYBUTTONUP:
 
+#ifdef __amigaos__
+            switch (amiga_pad_button(e.jbutton.button))
+#else
             switch (e.jbutton.button)
+#endif
             {
             case 0:
                mrboom_update_input_j(button_a, e.jaxis.which, 0, false);
@@ -740,6 +865,9 @@ int main(int argc, char **argv)
    }
 
    display->pixels = saveDisplay;
+#ifdef __amigaos__
+   mrboom_deinit();
+#endif
    SDL_Quit();
 
 #ifdef FALCON
