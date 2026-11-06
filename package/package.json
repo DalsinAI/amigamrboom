@@ -1,0 +1,62 @@
+{
+  "drawer": "MrBoom",
+  "drawer_icon": "amiga/icons/MrBoom-drawer.info",
+  "archive": "mrboom-{version}-68040",
+  "members": [
+    {
+      "name": "MrBoom",
+      "build": "MrBoom",
+      "check": "executable_sha256"
+    },
+    {
+      "name": "Libs/acgame.library",
+      "build": "acgame.library",
+      "check": "acgame_library_sha256"
+    },
+    {
+      "name": "",
+      "tar": "drawer.tar"
+    }
+  ],
+  "aminet": [
+    [
+      "Short",
+      "Mr.Boom, 8-player Bomberman clone, 68040+FPU"
+    ],
+    [
+      "Author",
+      "Remdy Software; libretro team; Amiga port: AmiCradle Team"
+    ],
+    [
+      "Uploader",
+      "AmiCradle Team"
+    ],
+    [
+      "Type",
+      "game/actio"
+    ],
+    [
+      "Version",
+      "{version}"
+    ],
+    [
+      "Requires",
+      "AmigaOS 3.x, 68040/68060 with FPU, AGA or RTG, AHI"
+    ],
+    [
+      "Architecture",
+      "m68k-amigaos >= 3.0"
+    ]
+  ],
+  "root": [
+    {
+      "name": "Install-MrBoom",
+      "repo": "package/installer/Install-MrBoom",
+      "installer": true
+    },
+    {
+      "name": "Install-MrBoom.info",
+      "repo": "package/installer/Install-MrBoom.info"
+    }
+  ]
+}
