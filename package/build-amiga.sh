@@ -23,6 +23,12 @@ BUILD=$(mktemp -d "${TMPDIR:-/tmp}/mrboom-package.XXXXXX")
 trap 'rm -rf "$BUILD"' EXIT INT TERM
 cd "$ROOT"
 
+# libretro-common is a submodule (the pinned commit), fetched when the
+# checkout has not got it.
+[ -f libretro-common/streams/memory_stream.c ] ||
+	git submodule update --init --depth 1 libretro-common > "$OUT/submodule-output.txt" 2>&1 ||
+	{ cat "$OUT/submodule-output.txt"; exit 1; }
+
 ACSDL12=1
 . "$HERE/acgame-deps.sh"
 
