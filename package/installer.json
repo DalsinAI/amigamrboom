@@ -1,0 +1,13 @@
+{
+  "name": "Mr.Boom",
+  "version": "5.5-amiga2",
+  "drawer": "MrBoom",
+  "program": "MrBoom",
+  "cpu": "68040",
+  "fpu": true,
+  "space": 6000000,
+  "modules": [],
+  "keep": [],
+  "parent": "Work:Games",
+  "badge": "../amiga/icons/art/mrboom.png"
+}
