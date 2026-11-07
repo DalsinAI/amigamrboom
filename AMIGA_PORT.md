@@ -7,6 +7,16 @@ Frranck/Javanaise), an 8-player Bomberman clone, for AmigaOS 3.x on a
 AHI sound). Upstream: https://github.com/Javanaise/mrboom-libretro at
 40ac320 (master, 5.5), MIT.
 
+Installing
+----------
+
+Unpack the archive anywhere (on AmiCradle: SYS:Utilities/OpenCompress x
+mrboom-...lha RAM:), then double-click Install-MrBoom beside the MrBoom
+drawer: it asks where to put the game (Work:Games by default) and updates
+an earlier install in place (Mr.Boom saves nothing). The drawer's Libs
+holds the acgame.library the game was built against, and the game opens
+that copy first.
+
 Running
 -------
 
@@ -75,9 +85,12 @@ Building
 
     make -f amiga/Makefile.amigaos STOVE=/path/to/openamigagcc \
          NDK=/path/to/gfopensdk/OpenNDK/Include_H \
-         ACSDL=/path/to/acsdl12
+         ACSDL=/path/to/acsdl12 ACSDLLIB=/path/to/acsdl12/build \
+         ACGAME=/path/to/acgame ACGAMELIB=/path/to/acgame/build-amiga
 
-needs python3 for the data. Output: build/amigaos/MrBoom/ and its icon
+needs python3 for the data. package/build-amiga.sh (STOVE and OUT set)
+makes the release archive with its installer; it fetches and builds
+acgame, acsdl12 and zlib at pinned commits. Output: build/amigaos/MrBoom/ and its icon
 build/amigaos/MrBoom.info. The upstream changes are under __amigaos__ in
 sdl/sdl.cpp, common.cpp and mrboom_data.c (m aligned to a long word); the
 rest is in amiga/. The icons are made with port_icons.py from

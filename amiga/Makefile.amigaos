@@ -2,7 +2,9 @@
 #
 #   make -f amiga/Makefile.amigaos STOVE=/path/to/openamigagcc \
 #        NDK=/path/to/gfopensdk/OpenNDK/Include_H \
-#        ACSDL=/path/to/amicradle-guest/gameports/acsdl12
+#        ACSDL=/path/to/amicradle-guest/gameports/acsdl12 \
+#        ACSDLLIB=/path/to/acsdl12/build ACGAME=/path/to/acgame \
+#        ACGAMELIB=/path/to/acgame/build-amiga
 #
 # STOVE is GFOpenAmigaGCC 16.2.0-open4 or later. ACSDL is acsdl12, built with
 # its own Makefile.amigaos (its library holds ACGame and zlib's inflate, so
@@ -15,13 +17,18 @@
 # extract_data.py, python3) into data/. XM music is played by upstream's
 # ibxm (libretro/ibxm) in acsdl12's music hook, MODs by acsdl12. libstdc++
 # asks for POSIX threads: amiga/pthread_stubs.c.
+# acsdl12 is built with ACG= into ACSDLLIB, without its own copy of ACGame:
+# the game gets ACGame from acgame.library, through ACGAMELIB's libacgame.a
+# (DalsinAI/acgame's stubs). package/acgame-deps.sh builds both.
 # Output: build/amigaos/MrBoom/ with the program, data/ beside it, and the
 # icons.
 
 STOVE   ?= $(HOME)/CradleLab/toolchain/openamigagcc-16.2.0-open4-x86_64-linux
 NDK     ?= $(HOME)/CradleLab/gfopensdk/OpenNDK/Include_H
 ACSDL   ?= $(HOME)/CradleLab/guest-sdl/gameports/acsdl12
+ACSDLLIB ?= $(ACSDL)/build/amigaos
 ACGAME  ?= $(ACSDL)/../acgame
+ACGAMELIB ?= $(ACGAME)/build-amiga
 ZLIB    ?= $(HOME)/CradleLab/zlib-1.3.1
 PYTHON  ?= python3
 CXX     = $(STOVE)/bin/m68k-amigaos-g++
@@ -58,7 +65,7 @@ ICONS   = amiga/icons/MrBoom-drawer.info amiga/icons/MrBoom.info \
 all: $(OUT)/MrBoom
 
 $(OUT)/MrBoom: $(OBJS) $(ICONS) AMIGA_PORT.md LICENSE sdl2/sdl2_data.h | $(OUT)
-	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(ACSDL)/build/amigaos/libacsdl12.a -lm
+	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(ACSDLLIB)/libacsdl12.a $(ACGAMELIB)/libacgame.a -lm
 	rm -rf $(DATA)
 	$(PYTHON) amiga/tools/extract_data.py sdl2/sdl2_data.h $(DATA)
 	cp AMIGA_PORT.md $(OUT)/ReadMe
