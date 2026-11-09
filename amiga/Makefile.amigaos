@@ -60,7 +60,7 @@ OBJS    = $(CORE_C) $(CORE_CXX) $(BUILD)/ibxm.o $(BUILD)/music_amiga.o \
           $(BUILD)/pthread_stubs.o $(BUILD)/stack.o
 HDRS    = mrboom.h common.hpp amiga/music_amiga.h $(wildcard ai/*.hpp)
 ICONS   = amiga/icons/MrBoom-drawer.info amiga/icons/MrBoom.info \
-          amiga/icons/data.info amiga/icons/ReadMe.info amiga/icons/LICENSE.info
+          amiga/icons/ReadMe.info amiga/icons/LICENSE.info
 
 all: $(OUT)/MrBoom
 
@@ -70,7 +70,7 @@ $(OUT)/MrBoom: $(OBJS) $(ICONS) AMIGA_PORT.md LICENSE sdl2/sdl2_data.h | $(OUT)
 	$(PYTHON) amiga/tools/extract_data.py sdl2/sdl2_data.h $(DATA)
 	cp AMIGA_PORT.md $(OUT)/ReadMe
 	cp LICENSE $(OUT)/LICENSE
-	cp amiga/icons/MrBoom.info amiga/icons/data.info \
+	cp amiga/icons/MrBoom.info \
 	   amiga/icons/ReadMe.info amiga/icons/LICENSE.info $(OUT)/
 	cp amiga/icons/MrBoom-drawer.info $(BUILD)/MrBoom.info
 
