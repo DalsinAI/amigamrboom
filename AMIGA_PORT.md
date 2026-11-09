@@ -94,4 +94,4 @@ acgame, acsdl12 and zlib at pinned commits. Output: build/amigaos/MrBoom/ and it
 build/amigaos/MrBoom.info. The upstream changes are under __amigaos__ in
 sdl/sdl.cpp, common.cpp and mrboom_data.c (m aligned to a long word); the
 rest is in amiga/. The icons are made with port_icons.py from
-amiga/icons/icons.json (the art is the game's own icon).
+amiga/icons/icons.json (the art is our own, amiga/icons/art/mrboom.svg).
